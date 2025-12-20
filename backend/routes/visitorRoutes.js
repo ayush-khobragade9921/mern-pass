@@ -1,0 +1,18 @@
+import express from 'express';
+import multer from 'multer';
+import { createVisitor, getVisitors } from '../controllers/visitorController.js';
+import { authMiddleware } from '../middleware/authMiddleware.js';
+
+const router = express.Router();
+
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, 'uploads/'),
+  filename: (req, file, cb) => cb(null, Date.now() + '-' + file.originalname)
+});
+const upload = multer({ storage });
+
+router.post('/', authMiddleware, upload.single('profilePhoto'), createVisitor); 
+router.get('/', authMiddleware, getVisitors);    
+
+export default router;
