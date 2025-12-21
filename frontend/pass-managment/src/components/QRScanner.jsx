@@ -59,9 +59,13 @@ const QRScanner = ({ onScanSuccess: onScanComplete, mode = "checkin" }) => {
         return;
       }
 
+      console.log("📷 Available cameras:", cameras);
+
       // Laptop me ALWAYS front cam, mobile me back cam
       const defaultCamera = cameras.find(cam => cam.label.toLowerCase().includes("back"))
         || cameras[0];
+
+      console.log("✅ Using camera:", defaultCamera.label);
 
       await scanner.start(
         { deviceId: { exact: defaultCamera.id } },
@@ -72,9 +76,11 @@ const QRScanner = ({ onScanSuccess: onScanComplete, mode = "checkin" }) => {
         handleQrCodeDetected,
         () => {}
       );
+
+      console.log("✅ Scanner started successfully");
     } catch (err) {
-      console.log(err);
-      setError("Unable to start camera. Give camera permission.");
+      console.error("❌ Scanner error:", err);
+      setError("Unable to start camera. Give camera permission and use localhost.");
       setScanning(false);
     }
   };
@@ -84,12 +90,16 @@ const QRScanner = ({ onScanSuccess: onScanComplete, mode = "checkin" }) => {
       if (html5QrCode) {
         await html5QrCode.stop();
         html5QrCode.clear();
+        console.log("✅ Scanner stopped");
       }
-    } catch (e) {}
+    } catch (e) {
+      console.error("Stop error:", e);
+    }
     setScanning(false);
   };
 
   const handleQrCodeDetected = (text) => {
+    console.log("📷 QR Code detected!");
     stopScanning();
     processQrCode(text);
   };
@@ -98,25 +108,48 @@ const QRScanner = ({ onScanSuccess: onScanComplete, mode = "checkin" }) => {
     if (!qrText || loading) return;
 
     setLoading(true);
+    setError("");
+
     try {
+      console.log("=== QR SCAN DEBUG ===");
+      console.log("📋 Raw QR Text:", qrText);
+
+      // Parse QR data
       let parsed;
       try {
         parsed = JSON.parse(qrText);
-      } catch {
+        console.log("✅ Parsed JSON:", parsed);
+      } catch (parseErr) {
+        console.log("⚠️ Not JSON, treating as plain Pass ID");
         parsed = { passId: qrText };
       }
 
+      // Extract Pass ID
       const passId = parsed.passId || parsed._id || qrText;
+      console.log("🎫 Extracted Pass ID:", passId);
 
+      // Validate Pass ID
+      if (!passId || passId === 'temp' || passId.length < 10) {
+        throw new Error("Invalid Pass ID extracted from QR code");
+      }
+
+      console.log("✅ Pass ID validated");
+      console.log("===================");
+
+      // Call backend
       let response;
       if (mode === "checkin") {
+        console.log("📥 Calling check-in API...");
         response = await api.post("/checklogs/checkin", {
           passId,
           location: "Main Entrance"
         });
       } else {
+        console.log("📤 Calling check-out API...");
         response = await api.post("/checklogs/checkout", { passId });
       }
+
+      console.log("✅ Backend response:", response.data);
 
       setResult({
         success: true,
@@ -126,11 +159,20 @@ const QRScanner = ({ onScanSuccess: onScanComplete, mode = "checkin" }) => {
         duration: response.data.duration
       });
 
-      onScanComplete && onScanComplete(response.data);
+      if (onScanComplete) {
+        onScanComplete(response.data);
+      }
+
     } catch (err) {
+      console.error("❌ QR processing error:", err);
+      console.error("Error details:", err.response?.data);
+      
+      const errorMsg = err.response?.data?.message || err.message || "Failed to process QR.";
+      setError(errorMsg);
+      
       setResult({
         success: false,
-        message: err.response?.data?.message || "Failed to process QR."
+        message: errorMsg
       });
     } finally {
       setLoading(false);
@@ -142,26 +184,54 @@ const QRScanner = ({ onScanSuccess: onScanComplete, mode = "checkin" }) => {
       {!scanning && !result && (
         <Box textAlign="center" py={4}>
           <QrCodeScannerIcon sx={{ fontSize: 80, color: "#1976d2", mb: 2 }} />
-          <Typography variant="h5">
-            {mode === "checkin" ? "Check-In" : "Check-Out"}
+          <Typography variant="h5" fontWeight="bold" gutterBottom>
+            {mode === "checkin" ? "📥 Check-In" : "📤 Check-Out"} Visitor
           </Typography>
+          <Typography color="text.secondary" paragraph>
+            Scan the QR code from visitor's pass
+          </Typography>
+          
           <Button
             variant="contained"
             size="large"
             onClick={startScanning}
-            sx={{ mt: 2 }}
+            sx={{ mt: 2, px: 4 }}
             startIcon={<QrCodeScannerIcon />}
           >
             Start QR Scanner
           </Button>
+
+          <Alert severity="info" sx={{ mt: 3, maxWidth: 600, mx: 'auto' }}>
+            <Typography variant="body2">
+              <strong>💡 Instructions:</strong>
+              <br />
+              • Click "Start QR Scanner"
+              <br />
+              • Allow camera permissions
+              <br />
+              • Hold QR code steady in front of camera
+              <br />
+              • Auto-detects in 3-5 seconds
+              <br />
+              <br />
+              <strong>⚠️ Important:</strong> Use <strong>http://localhost:5173</strong>
+            </Typography>
+          </Alert>
         </Box>
       )}
 
       {scanning && !result && (
         <Paper sx={{ p: 2 }}>
-          <Box display="flex" justifyContent="space-between">
-            <Typography>🎥 Scanner Active</Typography>
-            <Button color="error" variant="outlined" onClick={stopScanning}>
+          <Box display="flex" justifyContent="space-between" mb={2}>
+            <Typography variant="h6" fontWeight="bold">
+              🎥 Scanner Active
+            </Typography>
+            <Button 
+              color="error" 
+              variant="outlined" 
+              onClick={stopScanning}
+              startIcon={<CloseIcon />}
+            >
               Stop
             </Button>
           </Box>
@@ -172,33 +242,121 @@ const QRScanner = ({ onScanSuccess: onScanComplete, mode = "checkin" }) => {
               width: "100%",
               maxWidth: 500,
               margin: "0 auto",
-              marginTop: 20
+              border: "2px solid #1976d2",
+              borderRadius: 8
             }}
           />
 
           {loading && (
             <Box textAlign="center" mt={2}>
               <CircularProgress />
+              <Typography sx={{ mt: 1 }}>Processing QR Code...</Typography>
             </Box>
           )}
+
+          <Alert severity="warning" sx={{ mt: 2 }}>
+            <Typography variant="body2">
+              📸 Hold QR code steady | Distance: 15-20cm | Good lighting helps
+            </Typography>
+          </Alert>
         </Paper>
       )}
 
-      {error && (
+      {error && !result && (
         <Alert severity="error" sx={{ mt: 2 }} onClose={() => setError("")}>
-          {error}
+          <Typography variant="body2">
+            <strong>Error:</strong> {error}
+          </Typography>
         </Alert>
       )}
 
       {result && (
         <Dialog open={true} maxWidth="sm" fullWidth>
           <DialogTitle>
-            {result.success ? "Success" : "Failed"}
+            <Box display="flex" alignItems="center" justifyContent="space-between">
+              <Typography variant="h6" fontWeight="bold">
+                {result.success ? "✅ Success!" : "❌ Failed"}
+              </Typography>
+              <Button
+                onClick={() => {
+                  setResult(null);
+                  setScanning(false);
+                }}
+                size="small"
+              >
+                <CloseIcon />
+              </Button>
+            </Box>
           </DialogTitle>
+          
           <DialogContent>
-            <Typography>{result.message}</Typography>
+            <Box textAlign="center" mb={3}>
+              {result.success ? (
+                <CheckCircleIcon sx={{ fontSize: 80, color: 'success.main', mb: 2 }} />
+              ) : (
+                <CancelIcon sx={{ fontSize: 80, color: 'error.main', mb: 2 }} />
+              )}
+              
+              <Typography variant="h5" gutterBottom fontWeight="bold">
+                {mode === "checkin" ? "Check-In" : "Check-Out"} {result.success ? "Successful!" : "Failed"}
+              </Typography>
+              <Typography color="text.secondary" variant="body1">
+                {result.message}
+              </Typography>
+            </Box>
+
+            {result.success && result.visitor && (
+              <Box>
+                <Paper elevation={1} sx={{ p: 2, mb: 2, bgcolor: '#f5f5f5' }}>
+                  <Grid container spacing={2} alignItems="center">
+                    <Grid item>
+                      <Avatar
+                        src={result.visitor.photo}
+                        sx={{ width: 80, height: 80 }}
+                      >
+                        {result.visitor.name?.charAt(0)}
+                      </Avatar>
+                    </Grid>
+                    <Grid item xs>
+                      <Typography variant="h6" fontWeight="bold">
+                        {result.visitor.name}
+                      </Typography>
+                      <Typography color="text.secondary" variant="body2">
+                        📞 {result.visitor.phone || 'N/A'}
+                      </Typography>
+                      <Typography color="text.secondary" variant="body2">
+                        📧 {result.visitor.email || 'N/A'}
+                      </Typography>
+                    </Grid>
+                  </Grid>
+                </Paper>
+
+                {mode === "checkin" && result.checkLog && (
+                  <Box bgcolor="success.light" p={2} borderRadius={1}>
+                    <Typography variant="body2" color="success.dark" gutterBottom>
+                      <strong>✅ Check-In Time:</strong> {new Date(result.checkLog.checkInTime).toLocaleString()}
+                    </Typography>
+                    <Typography variant="body2" color="success.dark">
+                      <strong>📍 Location:</strong> {result.checkLog.location || 'Main Entrance'}
+                    </Typography>
+                  </Box>
+                )}
+
+                {mode === "checkout" && result.duration && (
+                  <Box bgcolor="info.light" p={2} borderRadius={1}>
+                    <Typography variant="body2" color="info.dark" gutterBottom>
+                      <strong>⏱️ Visit Duration:</strong> {result.duration}
+                    </Typography>
+                    <Typography variant="body2" color="info.dark">
+                      <strong>🚪 Check-Out Time:</strong> {new Date().toLocaleString()}
+                    </Typography>
+                  </Box>
+                )}
+              </Box>
+            )}
           </DialogContent>
-          <DialogActions>
+
+          <DialogActions sx={{ p: 2, gap: 1 }}>
             <Button
               variant="contained"
               onClick={() => {
@@ -206,8 +364,9 @@ const QRScanner = ({ onScanSuccess: onScanComplete, mode = "checkin" }) => {
                 startScanning();
               }}
               fullWidth
+              size="large"
             >
-              Scan Next
+              Scan Next Visitor
             </Button>
             <Button
               variant="outlined"
@@ -216,6 +375,7 @@ const QRScanner = ({ onScanSuccess: onScanComplete, mode = "checkin" }) => {
                 setScanning(false);
               }}
               fullWidth
+              size="large"
             >
               Done
             </Button>

@@ -6,42 +6,85 @@ export const checkIn = async (req, res) => {
   try {
     const { passId, location = 'Main Entrance' } = req.body;
 
-    // Verify pass exists and is valid
+    console.log('=== CHECK-IN REQUEST ===');
+    console.log('Pass ID:', passId);
+
+    // Verify pass exists
     const pass = await Pass.findById(passId)
-      .populate('visitor', 'name email phone');
+      .populate('visitor', 'name email phone photo');
 
     if (!pass) {
+      console.log('❌ Pass not found');
       return res.status(404).json({ message: 'Pass not found' });
     }
 
-    // Check if pass is valid
+    console.log('✅ Pass found:', pass._id);
+    console.log('Valid From:', pass.validFrom);
+    console.log('Valid To:', pass.validTo);
+    console.log('Status:', pass.status);
+
+    // DATE VALIDATION LOGIC
     const now = new Date();
-    if (now < new Date(pass.validFrom) || now > new Date(pass.validTo)) {
-      return res.status(400).json({ message: 'Pass is not valid for today' });
+    const validFrom = new Date(pass.validFrom);
+    const validTo = new Date(pass.validTo);
+
+    // Set time to start of day for comparison
+    now.setHours(0, 0, 0, 0);
+    validFrom.setHours(0, 0, 0, 0);
+    validTo.setHours(0, 0, 0, 0);
+
+    console.log('Today (normalized):', now);
+    console.log('Valid From (normalized):', validFrom);
+    console.log('Valid To (normalized):', validTo);
+
+    // LOGIC: Pass valid agar
+    // 1. validFrom aaj ya pehle ho (validFrom <= aaj)
+    // 2. validTo aaj ya baad mein ho (aaj <= validTo)
+    if (validFrom > now) {
+      console.log('❌ Pass not yet valid');
+      return res.status(400).json({ 
+        message: `Pass not yet valid. Valid from: ${validFrom.toLocaleDateString()}`
+      });
     }
 
+    if (now > validTo) {
+      console.log('❌ Pass has expired');
+      return res.status(400).json({ 
+        message: `Pass expired. Valid until: ${validTo.toLocaleDateString()}`
+      });
+    }
+
+    console.log('✅ Date validation passed');
+
+    // Check pass status
     if (pass.status !== 'active') {
+      console.log('❌ Pass is', pass.status);
       return res.status(400).json({ message: `Pass is ${pass.status}` });
     }
 
-    // Check if already checked in (no checkout yet)
+    console.log('✅ Pass is active');
+
+    // Check if already checked in
     const existingCheckIn = await CheckLog.findOne({
       pass: passId,
       checkOutTime: null
     });
 
     if (existingCheckIn) {
+      console.log('❌ Already checked in');
       return res.status(400).json({ 
         message: 'Visitor already checked in',
         checkLog: existingCheckIn 
       });
     }
 
+    console.log('✅ Creating check-in log');
+
     // Create check-in log
     const checkLog = new CheckLog({
       pass: passId,
       visitor: pass.visitor._id,
-      checkInTime: now,
+      checkInTime: new Date(), // Current time
       location,
       securityOfficer: req.user._id
     });
@@ -49,8 +92,10 @@ export const checkIn = async (req, res) => {
     await checkLog.save();
 
     // Populate for response
-    await checkLog.populate('visitor', 'name email phone');
+    await checkLog.populate('visitor', 'name email phone photo');
     await checkLog.populate('securityOfficer', 'name');
+
+    console.log('✅ Check-in successful!');
 
     res.status(201).json({
       message: 'Check-in successful',
@@ -58,7 +103,7 @@ export const checkIn = async (req, res) => {
       visitor: pass.visitor
     });
   } catch (err) {
-    console.error('Check-in error:', err);
+    console.error('❌ Check-in error:', err);
     res.status(400).json({ error: err.message });
   }
 };
@@ -67,17 +112,23 @@ export const checkOut = async (req, res) => {
   try {
     const { passId } = req.body;
 
+    console.log('=== CHECK-OUT REQUEST ===');
+    console.log('Pass ID:', passId);
+
     // Find active check-in log
     const checkLog = await CheckLog.findOne({
       pass: passId,
       checkOutTime: null
-    }).populate('visitor', 'name email phone');
+    }).populate('visitor', 'name email phone photo');
 
     if (!checkLog) {
+      console.log('❌ No active check-in found');
       return res.status(404).json({ 
         message: 'No active check-in found for this pass' 
       });
     }
+
+    console.log('✅ Active check-in found');
 
     // Update with checkout time
     checkLog.checkOutTime = new Date();
@@ -88,13 +139,16 @@ export const checkOut = async (req, res) => {
 
     await checkLog.save();
 
+    console.log('✅ Check-out successful, duration:', duration, 'minutes');
+
     res.json({
       message: 'Check-out successful',
       checkLog,
+      visitor: checkLog.visitor,
       duration: `${Math.floor(duration / 60)}h ${duration % 60}m`
     });
   } catch (err) {
-    console.error('Check-out error:', err);
+    console.error('❌ Check-out error:', err);
     res.status(400).json({ error: err.message });
   }
 };
@@ -112,7 +166,6 @@ export const getTodayCheckIns = async (req, res) => {
       .populate('securityOfficer', 'name')
       .sort({ checkInTime: -1 });
 
-    // Separate active (checked in) vs completed (checked out)
     const active = checkLogs.filter(log => !log.checkOutTime);
     const completed = checkLogs.filter(log => log.checkOutTime);
 
@@ -136,7 +189,6 @@ export const getAllCheckLogs = async (req, res) => {
     
     const filter = {};
 
-    // Date range filter
     if (startDate || endDate) {
       filter.checkInTime = {};
       if (startDate) filter.checkInTime.$gte = new Date(startDate);
@@ -147,10 +199,8 @@ export const getAllCheckLogs = async (req, res) => {
       }
     }
 
-    // Visitor filter
     if (visitor) filter.visitor = visitor;
 
-    // Status filter (active = no checkout, completed = has checkout)
     if (status === 'active') {
       filter.checkOutTime = null;
     } else if (status === 'completed') {
@@ -234,7 +284,6 @@ export const getCheckInStats = async (req, res) => {
       })
     ]);
 
-    // Get hourly distribution for today
     const hourlyData = await CheckLog.aggregate([
       {
         $match: { checkInTime: { $gte: today } }
