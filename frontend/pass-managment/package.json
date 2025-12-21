@@ -16,11 +16,11 @@
     "@mui/material": "^7.3.6",
     "axios": "^1.13.2",
     "date-fns": "^4.1.0",
+    "html5-qrcode": "^2.3.8",
     "react": "^19.2.0",
     "react-csv": "^2.2.2",
     "react-dom": "^19.2.0",
     "react-hook-form": "^7.69.0",
-    "react-qr-reader": "^3.0.0-beta-1",
     "react-router-dom": "^7.11.0",
     "recharts": "^3.6.0"
   },

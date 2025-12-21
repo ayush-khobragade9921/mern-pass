@@ -34,6 +34,7 @@ const CheckIn = () => {
   const [tabValue, setTabValue] = useState(0);
   const [activeVisitors, setActiveVisitors] = useState([]);
   const [completedVisitors, setCompletedVisitors] = useState([]);
+  const [allLogs, setAllLogs] = useState([]);
   const [stats, setStats] = useState({
     today: 0,
     activeNow: 0,
@@ -43,9 +44,14 @@ const CheckIn = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    fetchData();
+  }, []);
+
+  const fetchData = () => {
     fetchTodayCheckIns();
     fetchStats();
-  }, []);
+    fetchAllLogs();
+  };
 
   const fetchTodayCheckIns = async () => {
     try {
@@ -68,10 +74,18 @@ const CheckIn = () => {
     }
   };
 
+  const fetchAllLogs = async () => {
+    try {
+      const res = await api.get('/checklogs');
+      setAllLogs(res.data);
+    } catch (err) {
+      console.error('Error fetching all logs:', err);
+    }
+  };
+
   const handleScanSuccess = (data) => {
     console.log('Scan successful:', data);
-    fetchTodayCheckIns();
-    fetchStats();
+    fetchData(); // Refresh all data
   };
 
   const formatTime = (dateString) => {
@@ -92,12 +106,22 @@ const CheckIn = () => {
     });
   };
 
+  const formatDateTime = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
   return (
     <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
       {/* Header */}
       <Box mb={4}>
         <Typography variant="h4" gutterBottom fontWeight="bold">
-          Visitor Check-In/Out System
+          🎫 Visitor Check-In/Out System
         </Typography>
         <Typography color="text.secondary" variant="body1">
           Security Officer: <strong>{user?.name}</strong>
@@ -187,34 +211,35 @@ const CheckIn = () => {
           variant="fullWidth"
           sx={{ borderBottom: 1, borderColor: 'divider' }}
         >
-          <Tab label="Check-In Scanner" />
-          <Tab label="Check-Out Scanner" />
-          <Tab label={`Active Visitors (${activeVisitors.length})`} />
-          <Tab label={`Completed (${completedVisitors.length})`} />
+          <Tab label="📥 Check-In Scanner" />
+          <Tab label="📤 Check-Out Scanner" />
+          <Tab label={`✅ Active (${activeVisitors.length})`} />
+          <Tab label={`✔️ Completed (${completedVisitors.length})`} />
+          <Tab label={`📊 All Logs (${allLogs.length})`} />
         </Tabs>
         
         <Box p={3}>
-          {/* Check-In Tab */}
+          {/* Check-In Scanner Tab */}
           {tabValue === 0 && (
             <Box>
               <Typography variant="h6" gutterBottom color="primary">
-                📸 Check-In Visitor
+                📥 Check-In Visitor with QR Code
               </Typography>
               <Typography color="text.secondary" paragraph>
-                Scan the visitor's QR code to check them in
+                Scan the QR code from the visitor's pass to check them in
               </Typography>
               <QRScanner mode="checkin" onScanSuccess={handleScanSuccess} />
             </Box>
           )}
           
-          {/* Check-Out Tab */}
+          {/* Check-Out Scanner Tab */}
           {tabValue === 1 && (
             <Box>
               <Typography variant="h6" gutterBottom color="secondary">
-                🚪 Check-Out Visitor
+                📤 Check-Out Visitor with QR Code
               </Typography>
               <Typography color="text.secondary" paragraph>
-                Scan the visitor's QR code to check them out
+                Scan the QR code from the visitor's pass to check them out
               </Typography>
               <QRScanner mode="checkout" onScanSuccess={handleScanSuccess} />
             </Box>
@@ -239,7 +264,7 @@ const CheckIn = () => {
                     No visitors currently inside
                   </Typography>
                   <Typography color="text.secondary">
-                    Check-in visitors using the scanner
+                    Scan QR codes to check in visitors
                   </Typography>
                 </Box>
               ) : (
@@ -249,8 +274,8 @@ const CheckIn = () => {
                       <TableRow sx={{ bgcolor: '#f5f5f5' }}>
                         <TableCell><strong>Visitor</strong></TableCell>
                         <TableCell><strong>Check-In Time</strong></TableCell>
-                        <TableCell><strong>Location</strong></TableCell>
                         <TableCell><strong>Duration</strong></TableCell>
+                        <TableCell><strong>Location</strong></TableCell>
                         <TableCell><strong>Status</strong></TableCell>
                       </TableRow>
                     </TableHead>
@@ -285,12 +310,12 @@ const CheckIn = () => {
                                 {formatDate(log.checkInTime)}
                               </Typography>
                             </TableCell>
-                            <TableCell>{log.location || 'Main Entrance'}</TableCell>
                             <TableCell>
-                              <Typography variant="body2" color="primary">
-                                {duration} min
+                              <Typography variant="body2" color="primary" fontWeight="medium">
+                                {Math.floor(duration / 60)}h {duration % 60}m
                               </Typography>
                             </TableCell>
+                            <TableCell>{log.location || 'Main Entrance'}</TableCell>
                             <TableCell>
                               <Chip 
                                 label="Inside" 
@@ -309,14 +334,14 @@ const CheckIn = () => {
             </Box>
           )}
 
-          {/* Completed Visitors Tab */}
+          {/* Completed Visits Tab */}
           {tabValue === 3 && (
             <Box>
               <Typography variant="h6" gutterBottom>
-                📋 Completed Visits Today
+                ✔️ Completed Visits Today
               </Typography>
               <Typography color="text.secondary" paragraph mb={3}>
-                {completedVisitors.length} {completedVisitors.length === 1 ? 'visitor has' : 'visitors have'} completed their visit
+                {completedVisitors.length} {completedVisitors.length === 1 ? 'visitor has' : 'visitors have'} completed their visit today
               </Typography>
               
               {loading ? (
@@ -372,7 +397,7 @@ const CheckIn = () => {
                             </Typography>
                           </TableCell>
                           <TableCell>
-                            <Typography variant="body2" color="info.main">
+                            <Typography variant="body2" color="info.main" fontWeight="medium">
                               {log.duration ? `${Math.floor(log.duration / 60)}h ${log.duration % 60}m` : 'N/A'}
                             </Typography>
                           </TableCell>
@@ -391,6 +416,99 @@ const CheckIn = () => {
               )}
             </Box>
           )}
+
+          {/* All Logs Tab */}
+          {tabValue === 4 && (
+            <Box>
+              <Typography variant="h6" gutterBottom>
+                📊 Complete Check-In/Out History
+              </Typography>
+              <Typography color="text.secondary" paragraph mb={3}>
+                All visitor check-in and check-out records
+              </Typography>
+              
+              {allLogs.length === 0 ? (
+                <Box textAlign="center" py={6}>
+                  <ScheduleIcon sx={{ fontSize: 80, color: '#ccc', mb: 2 }} />
+                  <Typography variant="h6" color="text.secondary">
+                    No logs available
+                  </Typography>
+                </Box>
+              ) : (
+                <TableContainer>
+                  <Table>
+                    <TableHead>
+                      <TableRow sx={{ bgcolor: '#f5f5f5' }}>
+                        <TableCell><strong>Visitor</strong></TableCell>
+                        <TableCell><strong>Check-In</strong></TableCell>
+                        <TableCell><strong>Check-Out</strong></TableCell>
+                        <TableCell><strong>Duration</strong></TableCell>
+                        <TableCell><strong>Location</strong></TableCell>
+                        <TableCell><strong>Status</strong></TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {allLogs.map((log) => (
+                        <TableRow key={log._id} hover>
+                          <TableCell>
+                            <Box display="flex" alignItems="center" gap={1}>
+                              <Avatar 
+                                src={log.visitor?.photo}
+                                sx={{ width: 40, height: 40 }}
+                              >
+                                {log.visitor?.name?.charAt(0)}
+                              </Avatar>
+                              <Box>
+                                <Typography variant="body2" fontWeight="medium">
+                                  {log.visitor?.name || 'Unknown'}
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary">
+                                  {log.visitor?.phone || 'N/A'}
+                                </Typography>
+                              </Box>
+                            </Box>
+                          </TableCell>
+                          <TableCell>
+                            <Typography variant="body2">
+                              {formatDateTime(log.checkInTime)}
+                            </Typography>
+                          </TableCell>
+                          <TableCell>
+                            <Typography variant="body2">
+                              {log.checkOutTime ? formatDateTime(log.checkOutTime) : '-'}
+                            </Typography>
+                          </TableCell>
+                          <TableCell>
+                            {log.duration ? (
+                              <Typography variant="body2" color="info.main">
+                                {Math.floor(log.duration / 60)}h {log.duration % 60}m
+                              </Typography>
+                            ) : (
+                              <Typography variant="body2" color="success.main">
+                                Active
+                              </Typography>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <Typography variant="body2">
+                              {log.location || 'Main Entrance'}
+                            </Typography>
+                          </TableCell>
+                          <TableCell>
+                            {log.checkOutTime ? (
+                              <Chip label="Completed" size="small" />
+                            ) : (
+                              <Chip label="Active" color="success" size="small" />
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              )}
+            </Box>
+          )}
         </Box>
       </Paper>
 
@@ -398,12 +516,9 @@ const CheckIn = () => {
       <Box mt={3} textAlign="center">
         <Button 
           variant="outlined" 
-          onClick={() => {
-            fetchTodayCheckIns();
-            fetchStats();
-          }}
+          onClick={fetchData}
         >
-          🔄 Refresh Data
+          🔄 Refresh All Data
         </Button>
       </Box>
     </Container>
