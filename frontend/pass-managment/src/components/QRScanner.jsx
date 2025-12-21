@@ -13,24 +13,20 @@ import {
   DialogContent,
   DialogActions
 } from '@mui/material';
-
 import {
   CheckCircle as CheckCircleIcon,
   Cancel as CancelIcon,
   QrCodeScanner as QrCodeScannerIcon,
   Close as CloseIcon
 } from '@mui/icons-material';
-
 import { Html5Qrcode } from "html5-qrcode";
 import api from "../services/api";
-
 const QRScanner = ({ onScanSuccess: onScanComplete, mode = "checkin" }) => {
   const [scanning, setScanning] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [html5QrCode, setHtml5QrCode] = useState(null);
-
   useEffect(() => {
     return () => {
       if (html5QrCode) {
@@ -39,18 +35,14 @@ const QRScanner = ({ onScanSuccess: onScanComplete, mode = "checkin" }) => {
       }
     };
   }, [html5QrCode]);
-
   const startScanning = async () => {
     try {
       setError("");
       setScanning(true);
-
       // Wait for DOM element
       await new Promise(res => setTimeout(res, 300));
-
       const scanner = new Html5Qrcode("qr-reader");
       setHtml5QrCode(scanner);
-
       // GET AVAILABLE CAMERAS
       const cameras = await Html5Qrcode.getCameras();
       if (!cameras || cameras.length === 0) {
@@ -58,15 +50,11 @@ const QRScanner = ({ onScanSuccess: onScanComplete, mode = "checkin" }) => {
         setScanning(false);
         return;
       }
-
       console.log("📷 Available cameras:", cameras);
-
       // Laptop me ALWAYS front cam, mobile me back cam
       const defaultCamera = cameras.find(cam => cam.label.toLowerCase().includes("back"))
         || cameras[0];
-
       console.log("✅ Using camera:", defaultCamera.label);
-
       await scanner.start(
         { deviceId: { exact: defaultCamera.id } },
         {
@@ -76,7 +64,6 @@ const QRScanner = ({ onScanSuccess: onScanComplete, mode = "checkin" }) => {
         handleQrCodeDetected,
         () => {}
       );
-
       console.log("✅ Scanner started successfully");
     } catch (err) {
       console.error("❌ Scanner error:", err);
@@ -84,7 +71,6 @@ const QRScanner = ({ onScanSuccess: onScanComplete, mode = "checkin" }) => {
       setScanning(false);
     }
   };
-
   const stopScanning = async () => {
     try {
       if (html5QrCode) {
@@ -97,45 +83,43 @@ const QRScanner = ({ onScanSuccess: onScanComplete, mode = "checkin" }) => {
     }
     setScanning(false);
   };
-
   const handleQrCodeDetected = (text) => {
     console.log("📷 QR Code detected!");
     stopScanning();
     processQrCode(text);
   };
-
   const processQrCode = async (qrText) => {
     if (!qrText || loading) return;
-
     setLoading(true);
     setError("");
-
     try {
       console.log("=== QR SCAN DEBUG ===");
       console.log("📋 Raw QR Text:", qrText);
-
       // Parse QR data
       let parsed;
+      const cleanText = typeof qrText === 'string' ? qrText.trim() : JSON.stringify(qrText);
+      
       try {
-        parsed = JSON.parse(qrText);
+        parsed = JSON.parse(cleanText);
         console.log("✅ Parsed JSON:", parsed);
+        
+        // Handle double stringified JSON
+        if (typeof parsed === 'string') {
+          try { parsed = JSON.parse(parsed); } catch(e) {}
+        }
       } catch (parseErr) {
         console.log("⚠️ Not JSON, treating as plain Pass ID");
-        parsed = { passId: qrText };
+        parsed = { passId: cleanText };
       }
-
       // Extract Pass ID
-      const passId = parsed.passId || parsed._id || qrText;
+      const passId = parsed.passId || parsed._id || parsed.id || (typeof parsed === 'string' ? parsed : cleanText);
       console.log("🎫 Extracted Pass ID:", passId);
-
       // Validate Pass ID
       if (!passId || passId === 'temp' || passId.length < 10) {
-        throw new Error("Invalid Pass ID extracted from QR code");
+        throw new Error(`Invalid Pass ID extracted: ${passId}`);
       }
-
       console.log("✅ Pass ID validated");
       console.log("===================");
-
       // Call backend
       let response;
       if (mode === "checkin") {
@@ -148,9 +132,8 @@ const QRScanner = ({ onScanSuccess: onScanComplete, mode = "checkin" }) => {
         console.log("📤 Calling check-out API...");
         response = await api.post("/checklogs/checkout", { passId });
       }
-
       console.log("✅ Backend response:", response.data);
-
+      // Success - show result
       setResult({
         success: true,
         message: response.data.message,
@@ -158,27 +141,35 @@ const QRScanner = ({ onScanSuccess: onScanComplete, mode = "checkin" }) => {
         checkLog: response.data.checkLog,
         duration: response.data.duration
       });
-
       if (onScanComplete) {
         onScanComplete(response.data);
       }
-
     } catch (err) {
       console.error("❌ QR processing error:", err);
-      console.error("Error details:", err.response?.data);
+      console.error("Error response:", err.response?.data);
       
+      // Check if it's a "Already checked in" error - this is still valid
       const errorMsg = err.response?.data?.message || err.message || "Failed to process QR.";
-      setError(errorMsg);
       
-      setResult({
-        success: false,
-        message: errorMsg
-      });
+      if (errorMsg.includes("already checked in")) {
+        // Already checked in - show as info, not error
+        setResult({
+          success: false,
+          message: errorMsg,
+          isAlreadyCheckedIn: true
+        });
+      } else {
+        setError(errorMsg);
+        setResult({
+          success: false,
+          message: errorMsg,
+          isAlreadyCheckedIn: false
+        });
+      }
     } finally {
       setLoading(false);
     }
   };
-
   return (
     <Box>
       {!scanning && !result && (
@@ -200,7 +191,6 @@ const QRScanner = ({ onScanSuccess: onScanComplete, mode = "checkin" }) => {
           >
             Start QR Scanner
           </Button>
-
           <Alert severity="info" sx={{ mt: 3, maxWidth: 600, mx: 'auto' }}>
             <Typography variant="body2">
               <strong>💡 Instructions:</strong>
@@ -219,7 +209,6 @@ const QRScanner = ({ onScanSuccess: onScanComplete, mode = "checkin" }) => {
           </Alert>
         </Box>
       )}
-
       {scanning && !result && (
         <Paper sx={{ p: 2 }}>
           <Box display="flex" justifyContent="space-between" mb={2}>
@@ -235,7 +224,6 @@ const QRScanner = ({ onScanSuccess: onScanComplete, mode = "checkin" }) => {
               Stop
             </Button>
           </Box>
-
           <div
             id="qr-reader"
             style={{
@@ -246,14 +234,12 @@ const QRScanner = ({ onScanSuccess: onScanComplete, mode = "checkin" }) => {
               borderRadius: 8
             }}
           />
-
           {loading && (
             <Box textAlign="center" mt={2}>
               <CircularProgress />
               <Typography sx={{ mt: 1 }}>Processing QR Code...</Typography>
             </Box>
           )}
-
           <Alert severity="warning" sx={{ mt: 2 }}>
             <Typography variant="body2">
               📸 Hold QR code steady | Distance: 15-20cm | Good lighting helps
@@ -261,7 +247,6 @@ const QRScanner = ({ onScanSuccess: onScanComplete, mode = "checkin" }) => {
           </Alert>
         </Paper>
       )}
-
       {error && !result && (
         <Alert severity="error" sx={{ mt: 2 }} onClose={() => setError("")}>
           <Typography variant="body2">
@@ -269,13 +254,12 @@ const QRScanner = ({ onScanSuccess: onScanComplete, mode = "checkin" }) => {
           </Typography>
         </Alert>
       )}
-
       {result && (
         <Dialog open={true} maxWidth="sm" fullWidth>
           <DialogTitle>
             <Box display="flex" alignItems="center" justifyContent="space-between">
               <Typography variant="h6" fontWeight="bold">
-                {result.success ? "✅ Success!" : "❌ Failed"}
+                {result.success ? "✅ Success!" : result.isAlreadyCheckedIn ? "ℹ️ Info" : "❌ Failed"}
               </Typography>
               <Button
                 onClick={() => {
@@ -293,18 +277,19 @@ const QRScanner = ({ onScanSuccess: onScanComplete, mode = "checkin" }) => {
             <Box textAlign="center" mb={3}>
               {result.success ? (
                 <CheckCircleIcon sx={{ fontSize: 80, color: 'success.main', mb: 2 }} />
+              ) : result.isAlreadyCheckedIn ? (
+                <Typography sx={{ fontSize: 80, mb: 2 }}>ℹ️</Typography>
               ) : (
                 <CancelIcon sx={{ fontSize: 80, color: 'error.main', mb: 2 }} />
               )}
               
               <Typography variant="h5" gutterBottom fontWeight="bold">
-                {mode === "checkin" ? "Check-In" : "Check-Out"} {result.success ? "Successful!" : "Failed"}
+                {mode === "checkin" ? "Check-In" : "Check-Out"} {result.success ? "Successful!" : result.isAlreadyCheckedIn ? "Already Checked In" : "Failed"}
               </Typography>
               <Typography color="text.secondary" variant="body1">
                 {result.message}
               </Typography>
             </Box>
-
             {result.success && result.visitor && (
               <Box>
                 <Paper elevation={1} sx={{ p: 2, mb: 2, bgcolor: '#f5f5f5' }}>
@@ -330,7 +315,6 @@ const QRScanner = ({ onScanSuccess: onScanComplete, mode = "checkin" }) => {
                     </Grid>
                   </Grid>
                 </Paper>
-
                 {mode === "checkin" && result.checkLog && (
                   <Box bgcolor="success.light" p={2} borderRadius={1}>
                     <Typography variant="body2" color="success.dark" gutterBottom>
@@ -341,7 +325,6 @@ const QRScanner = ({ onScanSuccess: onScanComplete, mode = "checkin" }) => {
                     </Typography>
                   </Box>
                 )}
-
                 {mode === "checkout" && result.duration && (
                   <Box bgcolor="info.light" p={2} borderRadius={1}>
                     <Typography variant="body2" color="info.dark" gutterBottom>
@@ -355,7 +338,6 @@ const QRScanner = ({ onScanSuccess: onScanComplete, mode = "checkin" }) => {
               </Box>
             )}
           </DialogContent>
-
           <DialogActions sx={{ p: 2, gap: 1 }}>
             <Button
               variant="contained"
@@ -385,5 +367,4 @@ const QRScanner = ({ onScanSuccess: onScanComplete, mode = "checkin" }) => {
     </Box>
   );
 };
-
 export default QRScanner;
