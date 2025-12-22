@@ -8,6 +8,7 @@ import Visitors from './pages/Visitors';
 import Appointments from './pages/Appointments';
 import Passes from './pages/Passes';
 import CheckIn from './pages/CheckIn';
+import Requestvisit from './pages/Requestvisit';  // ← LOWERCASE
 
 function App() {
   return (
@@ -23,6 +24,16 @@ function App() {
             element={
               <PrivateRoute>
                 <Dashboard />
+              </PrivateRoute>
+            } 
+          />
+          
+          {/* Request Visit - Visitor role only (self-registration) */}
+          <Route 
+            path="/request-visit" 
+            element={
+              <PrivateRoute roles={['visitor']}>
+                <Requestvisit />
               </PrivateRoute>
             } 
           />

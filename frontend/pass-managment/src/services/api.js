@@ -14,13 +14,6 @@ const api = axios.create({
 // Request interceptor - runs before every request
 api.interceptors.request.use(
   (config) => {
-    // You can add custom headers here if needed
-    // For example, if you want to add a token from localStorage:
-    // const token = localStorage.getItem('token');
-    // if (token) {
-    //   config.headers.Authorization = `Bearer ${token}`;
-    // }
-    
     return config;
   },
   (error) => {
@@ -32,30 +25,30 @@ api.interceptors.request.use(
 // Response interceptor - runs after every response
 api.interceptors.response.use(
   (response) => {
-    // Any status code within the range of 2xx will trigger this function
     return response;
   },
   (error) => {
-    // Any status codes outside the range of 2xx will trigger this function
+    // Only log errors that are NOT 401 on /users/me
+    // (401 on /users/me is expected when not logged in)
+    const isAuthCheck = error.config?.url?.includes('/users/me');
+    const is401 = error.response?.status === 401;
     
-    // Log error for debugging
-    if (error.response) {
-      console.error('API Error:', {
-        status: error.response.status,
-        message: error.response.data?.message || error.response.data?.error,
-        url: error.config?.url
-      });
-    } else if (error.request) {
-      console.error('Network Error:', error.message);
-    } else {
-      console.error('Error:', error.message);
+    if (!isAuthCheck || !is401) {
+      // Log other errors for debugging
+      if (error.response) {
+        console.error('API Error:', {
+          status: error.response.status,
+          message: error.response.data?.message || error.response.data?.error,
+          url: error.config?.url
+        });
+      } else if (error.request) {
+        console.error('Network Error:', error.message);
+      } else {
+        console.error('Error:', error.message);
+      }
     }
 
-    // DON'T redirect here - let React Router handle navigation
-    // The AuthContext and PrivateRoute components will handle auth state
-    // This prevents the infinite reload loop
-
-    // Just pass the error to the calling component
+    // Pass the error to the calling component
     return Promise.reject(error);
   }
 );

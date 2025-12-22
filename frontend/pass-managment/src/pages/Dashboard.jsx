@@ -10,7 +10,8 @@ import {
   ExitToApp as ExitToAppIcon,
   Dashboard as DashboardIcon,
   Settings as SettingsIcon,
-  BarChart as BarChartIcon
+  BarChart as BarChartIcon,
+  Add as AddIcon
 } from '@mui/icons-material';
 
 const Dashboard = () => {
@@ -108,7 +109,7 @@ const Dashboard = () => {
               <CardContent>
                 <Box display="flex" alignItems="center" justifyContent="space-between">
                   <Box>
-                    <Typography variant="h6" color="text.secondary">Active Passes</Typography>
+                    <Typography variant="h6" color="text.secondary">Passes Issued</Typography>
                     <Typography variant="h3" fontWeight="bold" color="success.main">
                       {stats.passes}
                     </Typography>
@@ -120,60 +121,62 @@ const Dashboard = () => {
           </Grid>
         </Grid>
 
-        {/* Admin Actions */}
-        <Typography variant="h5" gutterBottom fontWeight="bold" mb={2}>
-          Admin Controls
-        </Typography>
-        <Grid container spacing={2}>
-          <Grid item xs={12} sm={6} md={3}>
-            <Button
-              variant="contained"
-              fullWidth
-              size="large"
-              startIcon={<PeopleIcon />}
-              onClick={() => navigate('/visitors')}
-              sx={{ py: 2 }}
-            >
-              Manage Visitors
-            </Button>
+        {/* Quick Actions */}
+        <Paper elevation={3} sx={{ p: 3 }}>
+          <Typography variant="h5" gutterBottom fontWeight="bold">
+            Quick Actions
+          </Typography>
+          <Grid container spacing={2}>
+            <Grid item xs={12} sm={6} md={3}>
+              <Button
+                variant="contained"
+                fullWidth
+                size="large"
+                startIcon={<PeopleIcon />}
+                onClick={() => navigate('/visitors')}
+                sx={{ py: 2 }}
+              >
+                Manage Visitors
+              </Button>
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <Button
+                variant="contained"
+                fullWidth
+                size="large"
+                startIcon={<EventNoteIcon />}
+                onClick={() => navigate('/appointments')}
+                sx={{ py: 2 }}
+              >
+                Appointments
+              </Button>
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <Button
+                variant="contained"
+                fullWidth
+                size="large"
+                startIcon={<BadgeIcon />}
+                onClick={() => navigate('/passes')}
+                sx={{ py: 2 }}
+              >
+                Manage Passes
+              </Button>
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <Button
+                variant="contained"
+                fullWidth
+                size="large"
+                startIcon={<DashboardIcon />}
+                onClick={() => navigate('/checkin')}
+                sx={{ py: 2 }}
+              >
+                Check-In System
+              </Button>
+            </Grid>
           </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <Button
-              variant="contained"
-              fullWidth
-              size="large"
-              startIcon={<EventNoteIcon />}
-              onClick={() => navigate('/appointments')}
-              sx={{ py: 2 }}
-            >
-              Manage Appointments
-            </Button>
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <Button
-              variant="contained"
-              fullWidth
-              size="large"
-              startIcon={<BadgeIcon />}
-              onClick={() => navigate('/passes')}
-              sx={{ py: 2 }}
-            >
-              Manage Passes
-            </Button>
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <Button
-              variant="contained"
-              fullWidth
-              size="large"
-              startIcon={<BarChartIcon />}
-              onClick={() => navigate('/checkin')}
-              sx={{ py: 2 }}
-            >
-              Check-In System
-            </Button>
-          </Grid>
-        </Grid>
+        </Paper>
       </Container>
     );
   }
@@ -376,9 +379,9 @@ const Dashboard = () => {
         <Paper elevation={3} sx={{ p: 4, mb: 3, bgcolor: '#e8f5e9' }}>
           <Typography variant="h5" gutterBottom>
             🎫 Your Role: Visitor
-            </Typography>
+          </Typography>
           <Typography color="text.secondary" paragraph>
-            You can view your appointments and passes here.
+            Request appointments, view your visit requests, and access your digital passes.
           </Typography>
         </Paper>
 
@@ -387,13 +390,13 @@ const Dashboard = () => {
             <Card elevation={3}>
               <CardContent>
                 <Typography variant="h6" gutterBottom>
-                  My Appointments
+                  My Visit Requests
                 </Typography>
                 <Typography variant="h3" color="primary" fontWeight="bold">
                   {stats.appointments}
                 </Typography>
                 <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                  Pending and approved
+                  Pending and approved visits
                 </Typography>
               </CardContent>
             </Card>
@@ -408,7 +411,7 @@ const Dashboard = () => {
                   {stats.passes}
                 </Typography>
                 <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                  Active passes
+                  Approved & active passes
                 </Typography>
               </CardContent>
             </Card>
@@ -419,44 +422,57 @@ const Dashboard = () => {
           Quick Actions
         </Typography>
         <Grid container spacing={2}>
-          <Grid item xs={12} sm={6}>
+          <Grid item xs={12} sm={4}>
             <Button
               variant="contained"
+              fullWidth
+              size="large"
+              color="primary"
+              startIcon={<AddIcon />}
+              onClick={() => navigate('/request-visit')}
+              sx={{ py: 2 }}
+            >
+              Request Visit
+            </Button>
+          </Grid>
+          <Grid item xs={12} sm={4}>
+            <Button
+              variant="outlined"
               fullWidth
               size="large"
               startIcon={<EventNoteIcon />}
               onClick={() => navigate('/appointments')}
               sx={{ py: 2 }}
             >
-              View My Appointments
+              My Requests
             </Button>
           </Grid>
-          <Grid item xs={12} sm={6}>
+          <Grid item xs={12} sm={4}>
             <Button
-              variant="contained"
+              variant="outlined"
               fullWidth
               size="large"
               startIcon={<BadgeIcon />}
               onClick={() => navigate('/passes')}
               sx={{ py: 2 }}
             >
-              View My Passes
+              My Passes
             </Button>
           </Grid>
         </Grid>
 
-        <Paper elevation={1} sx={{ p: 3, mt: 4, bgcolor: '#fff3e0' }}>
+        <Paper elevation={1} sx={{ p: 3, mt: 4, bgcolor: '#e3f2fd' }}>
           <Typography variant="body1" fontWeight="bold" gutterBottom>
-            📋 Note:
+            📋 How it works:
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+            • <strong>Request Visit:</strong> Submit a visit request with date, time, and purpose
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+            • <strong>My Requests:</strong> Track status of your visit requests (Pending/Approved/Rejected)
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            • You can only view your own appointments and passes
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            • Contact an employee to schedule new appointments
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            • Download your pass and show it at security desk
+            • <strong>My Passes:</strong> Download approved passes and show at security desk
           </Typography>
         </Paper>
       </Container>
