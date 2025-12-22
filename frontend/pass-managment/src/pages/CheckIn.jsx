@@ -228,7 +228,7 @@ const CheckIn = () => {
               <Typography color="text.secondary" paragraph>
                 Scan the QR code from the visitor's pass to check them in
               </Typography>
-              <QRScanner mode="checkin" onScanSuccess={handleScanSuccess} />
+              <QRScanner key={`checkin-${tabValue}`} mode="checkin" onScanSuccess={handleScanSuccess} />
             </Box>
           )}
           
@@ -241,7 +241,7 @@ const CheckIn = () => {
               <Typography color="text.secondary" paragraph>
                 Scan the QR code from the visitor's pass to check them out
               </Typography>
-              <QRScanner mode="checkout" onScanSuccess={handleScanSuccess} />
+             <QRScanner key={`checkout-${tabValue}`} mode="checkout" onScanSuccess={handleScanSuccess} />
             </Box>
           )}
           

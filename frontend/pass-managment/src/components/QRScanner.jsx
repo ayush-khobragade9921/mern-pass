@@ -33,7 +33,7 @@ const QRScanner = ({ onScanSuccess: onScanComplete, mode = "checkin" }) => {
   const [html5QrCode, setHtml5QrCode] = useState(null);
   
   const processingRef = useRef(false);
-  const lastProcessedQR = useRef(null);
+  const scannerActiveRef = useRef(false);
 
   useEffect(() => {
     return () => {
@@ -50,7 +50,7 @@ const QRScanner = ({ onScanSuccess: onScanComplete, mode = "checkin" }) => {
       setResult(null);
       setScanning(true);
       processingRef.current = false;
-      lastProcessedQR.current = null;
+      scannerActiveRef.current = true;
 
       await new Promise(res => setTimeout(res, 300));
 
@@ -61,6 +61,7 @@ const QRScanner = ({ onScanSuccess: onScanComplete, mode = "checkin" }) => {
       if (!cameras || cameras.length === 0) {
         setError("No camera found");
         setScanning(false);
+        scannerActiveRef.current = false;
         return;
       }
 
@@ -76,10 +77,12 @@ const QRScanner = ({ onScanSuccess: onScanComplete, mode = "checkin" }) => {
       console.error("Scanner error:", err);
       setError("Unable to start camera");
       setScanning(false);
+      scannerActiveRef.current = false;
     }
   };
 
   const stopScanning = async () => {
+    scannerActiveRef.current = false;
     try {
       if (html5QrCode) {
         await html5QrCode.stop();
@@ -87,17 +90,14 @@ const QRScanner = ({ onScanSuccess: onScanComplete, mode = "checkin" }) => {
       }
     } catch (e) {}
     setScanning(false);
-    processingRef.current = false;
   };
 
   const handleQrCodeDetected = (text) => {
-    if (processingRef.current || lastProcessedQR.current === text) {
-      console.log("⚠️ Ignoring duplicate QR detection");
+    if (!scannerActiveRef.current || processingRef.current) {
       return;
     }
 
-    console.log("📷 QR Code detected!");
-    lastProcessedQR.current = text;
+    scannerActiveRef.current = false;
     processingRef.current = true;
     
     stopScanning();
@@ -114,10 +114,6 @@ const QRScanner = ({ onScanSuccess: onScanComplete, mode = "checkin" }) => {
     setError("");
 
     try {
-      console.log("=== QR PROCESSING START ===");
-      console.log("Mode:", mode);
-      console.log("Raw QR:", qrText);
-
       let parsed;
       try {
         parsed = JSON.parse(qrText);
@@ -126,7 +122,6 @@ const QRScanner = ({ onScanSuccess: onScanComplete, mode = "checkin" }) => {
       }
 
       const passId = parsed.passId || parsed._id || qrText;
-      console.log("Pass ID:", passId);
 
       if (!passId || passId === 'temp') {
         throw new Error("Invalid Pass ID");
@@ -134,80 +129,37 @@ const QRScanner = ({ onScanSuccess: onScanComplete, mode = "checkin" }) => {
 
       let response;
       if (mode === "checkin") {
-        console.log("📥 Calling check-in API...");
         response = await api.post("/checklogs/checkin", {
           passId,
           location: "Main Entrance"
         });
       } else {
-        console.log("📤 Calling check-out API...");
         response = await api.post("/checklogs/checkout", { passId });
       }
 
-      console.log("=== API RESPONSE ===");
-      console.log("Status:", response.status);
-      console.log("StatusText:", response.statusText);
-      console.log("Full response.data:", JSON.stringify(response.data, null, 2));
-
-      // Extract visitor data - CHECK ALL POSSIBLE LOCATIONS
-      let visitor = null;
-      
-      console.log("=== EXTRACTING VISITOR ===");
-      console.log("response.data.visitor:", response.data.visitor);
-      console.log("response.data.checkLog:", response.data.checkLog);
-      console.log("response.data.checkLog?.visitor:", response.data.checkLog?.visitor);
-      
-      if (response.data.visitor) {
-        visitor = response.data.visitor;
-        console.log("✅ Visitor from response.data.visitor");
-      } else if (response.data.checkLog && response.data.checkLog.visitor) {
-        visitor = response.data.checkLog.visitor;
-        console.log("✅ Visitor from response.data.checkLog.visitor");
-      } else {
-        console.log("⚠️ NO VISITOR DATA FOUND!");
-        console.log("Setting visitor to null - will show generic success");
-      }
-
-      console.log("Final visitor:", visitor);
-
+      const visitor = response.data.visitor || response.data.checkLog?.visitor;
       const checkLog = response.data.checkLog;
       const duration = response.data.duration;
       const alreadyCheckedIn = response.data.alreadyCheckedIn || false;
 
-      console.log("Final checkLog:", checkLog);
-      console.log("Final duration:", duration);
-      console.log("Final alreadyCheckedIn:", alreadyCheckedIn);
-
-      // SET RESULT AS SUCCESS
       setResult({
         success: true,
-        message: response.data.message || "Operation successful",
+        message: response.data.message || "Success",
         visitor: visitor,
         checkLog: checkLog,
         duration: duration,
         alreadyCheckedIn: alreadyCheckedIn
       });
 
-      console.log("✅ Result set as SUCCESS");
-      console.log("===================");
-
-      // Callback for dashboard refresh
       if (onScanComplete) {
         setTimeout(() => {
           onScanComplete(response.data);
-        }, 100);
+        }, 500);
       }
 
     } catch (err) {
-      console.error("=== ERROR OCCURRED ===");
       console.error("Error:", err);
-      console.error("Error message:", err.message);
-      console.error("Error response:", err.response);
-      console.error("Error response.data:", err.response?.data);
-      console.error("Error response.status:", err.response?.status);
-      console.error("===================");
-      
-      const errorMsg = err.response?.data?.message || err.message || "Failed to process QR";
+      const errorMsg = err.response?.data?.message || err.message || "Failed";
       
       setError(errorMsg);
       setResult({
@@ -217,7 +169,6 @@ const QRScanner = ({ onScanSuccess: onScanComplete, mode = "checkin" }) => {
     } finally {
       setLoading(false);
       processingRef.current = false;
-      console.log("=== PROCESSING COMPLETE ===");
     }
   };
 
@@ -226,14 +177,14 @@ const QRScanner = ({ onScanSuccess: onScanComplete, mode = "checkin" }) => {
     setError("");
     setScanning(false);
     processingRef.current = false;
-    lastProcessedQR.current = null;
+    scannerActiveRef.current = false;
   };
 
   const handleScanNext = () => {
     setResult(null);
     setError("");
     processingRef.current = false;
-    lastProcessedQR.current = null;
+    scannerActiveRef.current = false;
     startScanning();
   };
 
@@ -291,7 +242,7 @@ const QRScanner = ({ onScanSuccess: onScanComplete, mode = "checkin" }) => {
           {loading && (
             <Box textAlign="center" mt={2}>
               <CircularProgress />
-              <Typography sx={{ mt: 1 }}>Processing QR Code...</Typography>
+              <Typography sx={{ mt: 1 }}>Processing...</Typography>
             </Box>
           )}
         </Paper>
@@ -308,11 +259,8 @@ const QRScanner = ({ onScanSuccess: onScanComplete, mode = "checkin" }) => {
           open={true} 
           maxWidth="sm" 
           fullWidth
-          onClose={(event, reason) => {
-            if (reason !== 'backdropClick') {
-              handleClose();
-            }
-          }}
+          disableEscapeKeyDown
+          onClose={() => {}}
         >
           <DialogTitle>
             <Box display="flex" alignItems="center" justifyContent="space-between">
@@ -382,11 +330,6 @@ const QRScanner = ({ onScanSuccess: onScanComplete, mode = "checkin" }) => {
                     <Typography variant="body2" color={result.alreadyCheckedIn ? "info.dark" : "success.dark"}>
                       <strong>📍 Location:</strong> {result.checkLog.location || 'Main Entrance'}
                     </Typography>
-                    {result.alreadyCheckedIn && (
-                      <Typography variant="body2" color="info.dark" sx={{ mt: 1 }}>
-                        💡 <strong>Tip:</strong> Use Check-Out Scanner to check out first
-                      </Typography>
-                    )}
                   </Box>
                 )}
 
@@ -395,20 +338,14 @@ const QRScanner = ({ onScanSuccess: onScanComplete, mode = "checkin" }) => {
                     <Typography variant="body2" color="info.dark" gutterBottom>
                       <strong>⏱️ Duration:</strong> {result.duration}
                     </Typography>
-                    {result.checkLog?.checkOutTime && (
-                      <Typography variant="body2" color="info.dark">
-                        <strong>🚪 Check-Out:</strong> {new Date(result.checkLog.checkOutTime).toLocaleString()}
-                      </Typography>
-                    )}
                   </Box>
                 )}
               </Box>
             )}
 
-            {/* Show success message even without visitor details */}
             {result.success && !result.visitor && (
               <Alert severity="success">
-                ✅ {mode === "checkin" ? "Check-in" : "Check-out"} completed successfully! Dashboard updated.
+                ✅ Operation completed successfully!
               </Alert>
             )}
           </DialogContent>
@@ -420,7 +357,7 @@ const QRScanner = ({ onScanSuccess: onScanComplete, mode = "checkin" }) => {
               fullWidth
               size="large"
             >
-              Scan Next Visitor
+              Scan Next
             </Button>
             <Button
               variant="outlined"
