@@ -32,14 +32,20 @@ const QRScanner = ({ onScanSuccess: onScanComplete, mode = "checkin" }) => {
   const [loading, setLoading] = useState(false);
   const [html5QrCode, setHtml5QrCode] = useState(null);
   
+  // Use a unique ID for each instance to prevent conflicts when switching tabs
+  const qrCodeIdRef = useRef("qr-reader-" + Math.random().toString(36).substr(2, 9));
+  
   const processingRef = useRef(false);
   const scannerActiveRef = useRef(false);
 
   useEffect(() => {
     return () => {
       if (html5QrCode) {
-        html5QrCode.stop().catch(() => {});
-        html5QrCode.clear();
+        // Fix: Use promise chain to ensure stop completes before clear
+        html5QrCode.stop().then(() => html5QrCode.clear()).catch(err => {
+            // If stop fails (e.g. not running), force clear
+            try { html5QrCode.clear(); } catch(e) {}
+        });
       }
     };
   }, [html5QrCode]);
@@ -54,7 +60,7 @@ const QRScanner = ({ onScanSuccess: onScanComplete, mode = "checkin" }) => {
 
       await new Promise(res => setTimeout(res, 300));
 
-      const scanner = new Html5Qrcode("qr-reader");
+      const scanner = new Html5Qrcode(qrCodeIdRef.current);
       setHtml5QrCode(scanner);
 
       const cameras = await Html5Qrcode.getCameras();
@@ -229,7 +235,7 @@ const QRScanner = ({ onScanSuccess: onScanComplete, mode = "checkin" }) => {
           </Box>
 
           <div
-            id="qr-reader"
+            id={qrCodeIdRef.current}
             style={{
               width: "100%",
               maxWidth: 500,
