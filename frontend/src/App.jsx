@@ -86,7 +86,7 @@ function App() {
           
           {/* Catch-all Route - Redirect to Dashboard */}
           <Route 
-            path="*" 
+            path="/*" 
             element={<Navigate to="/dashboard" replace />} 
           />
         </Routes>
