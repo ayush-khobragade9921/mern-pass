@@ -334,7 +334,7 @@ const CheckIn = () => {
             </Box>
           )}
 
-          {/* Completed Visits Tab */}
+         
           {tabValue === 3 && (
             <Box>
               <Typography variant="h6" gutterBottom>

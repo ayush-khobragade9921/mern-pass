@@ -434,7 +434,7 @@ const Login = () => {
           </Paper>
         </Slide>
 
-        {/* Demo Credentials Info */}
+       
         {!isRegister && (
           <Fade in={!isRegister} timeout={800}>
             <Paper

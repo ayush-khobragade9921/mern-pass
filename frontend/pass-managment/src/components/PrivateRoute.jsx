@@ -9,7 +9,7 @@ const PrivateRoute = ({ children, roles }) => {
   const { user, loading } = useContext(AuthContext);
   const navigate = useNavigate();
 
-  // Show loading state
+ 
   if (loading) {
     return (
       <Container maxWidth="sm" sx={{ mt: 8 }}>
@@ -20,12 +20,12 @@ const PrivateRoute = ({ children, roles }) => {
     );
   }
 
-  // Not authenticated - redirect to login
+ 
   if (!user) {
     return <Navigate to="/login" replace />;
   }
 
-  // Check if user has required role
+  
   if (roles && !roles.includes(user.role)) {
     return (
       <Container maxWidth="sm" sx={{ mt: 8 }}>
@@ -57,7 +57,7 @@ const PrivateRoute = ({ children, roles }) => {
     );
   }
 
-  // User is authenticated and has correct role
+  
   return children;
 };
 
