@@ -38,20 +38,22 @@ if (!origin) return callback(null, true);
 
 
   const allowedOrigins = [
-    "[localhost:5173](http://localhost:5173)",
-    "[localhost:3000](http://localhost:3000)",
-    "[localhost:5174](http://localhost:5174)",
-    process.env.FRONTEND_URL,
+    "http://localhost:5173",
+    "http://localhost:3000",
+    "http://localhost:5174",
+    process.env.FRONTEND_URL, // Set this in your .env for production
+    "https://your-app.vercel.app", // Replace with your actual Vercel URL
+    "https://your-app.netlify.app"  // Replace with your actual Netlify URL
   ].filter(Boolean);
 
   // Check if origin is allowed
   if (allowedOrigins.includes(origin)) {
     callback(null, true);
   } else {
-    // For development, allow [localhost](http://localhost) with any port
+    // For development, allow localhost with any port
     if (
-      origin.startsWith("[localhost](http://localhost):") ||
-      origin.startsWith("[localhost](https://localhost):")
+      origin &&
+      (origin.startsWith("http://localhost:") || origin.startsWith("https://localhost:"))
     ) {
       callback(null, true);
     } else {
