@@ -30,10 +30,38 @@ const __dirname = path.dirname(__filename);
 // });
 // app.use(limiter);
 
-app.use(cors({
-  origin: 'process.env.FRONTEND_URL',
-  credentials: true
-}));
+app.use(
+cors({
+origin: (origin, callback) => {
+// Allow requests with no origin (like mobile apps or curl requests)
+if (!origin) return callback(null, true);
+
+
+  const allowedOrigins = [
+    "[localhost:5173](http://localhost:5173)",
+    "[localhost:3000](http://localhost:3000)",
+    "[localhost:5174](http://localhost:5174)",
+    process.env.FRONTEND_URL,
+  ].filter(Boolean);
+
+  // Check if origin is allowed
+  if (allowedOrigins.includes(origin)) {
+    callback(null, true);
+  } else {
+    // For development, allow [localhost](http://localhost) with any port
+    if (
+      origin.startsWith("[localhost](http://localhost):") ||
+      origin.startsWith("[localhost](https://localhost):")
+    ) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS"));
+    }
+  }
+},
+credentials: true,
+})
+);
 
 app.use(express.json());
 
